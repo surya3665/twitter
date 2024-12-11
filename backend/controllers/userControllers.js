@@ -5,7 +5,7 @@ const { v2 } = require("cloudinary");
 const getUserProfileController = async (req, res) => {
   try {
     const { userName } = req.params;
-    const user = await UserModel.findOne({ userName }).select("-password")
+    const user = await UserModel.findOne({ userName }).select("-password");
 
     if (!user) {
       return res.status(404).json({ error: "user not found", success: false });
@@ -107,25 +107,8 @@ const updateUserProfileController = async (req, res) => {
     if (!user) {
       return res.status(404).json({ error: "User not found" });
     }
-    if (
-      (!newPassword && currentPassword) ||
-      (!currentPassword && newPassword)
-    ) {
-      return res.status(400).json({
-        error: "Please provide both current password and new password",
-      });
-    }
 
-    if (currentPassword && newPassword) {
-      const isMatch = await bcrypt.compare(currentPassword, user.password);
-      if (!isMatch)
-        return res.status(400).json({ error: "Current Password is incorrect" });
-      if (newPassword.length < 6) {
-        return res
-          .status(400)
-          .json({ error: "Password must be at least 6 characters long" });
-      }
-      user.password = await bcrypt.hash(newPassword, 8);
+    if (profileImg || coverImg) {
       if (profileImg) {
         if (user.profileImg) {
           await v2.uploader.destroy(
@@ -144,19 +127,37 @@ const updateUserProfileController = async (req, res) => {
         const uploadedResponse = await v2.uploader.upload(coverImg);
         coverImg = uploadedResponse.secure_url;
       }
-
-      user.fullName = fullName || user.fullName;
-      user.userName = userName || user.userName
-      user.email = email || user.email;
-      user.bio = bio || user.bio;
-      user.link = link || user.link;
       user.profileImg = profileImg || user.profileImg;
       user.coverImg = coverImg || user.coverImg;
-
       user = await user.save();
-      user.password = null;
-      return res.status(200).json(user);
+      return res.status(200).json({ msg: "img updated" });
     }
+
+    if (!newPassword || !currentPassword) {
+      return res.status(400).json({
+        error: "Please provide both current password and new password",
+      });
+    }
+    if (currentPassword && newPassword) {
+      const isMatch = await bcrypt.compare(currentPassword, user.password);
+      if (!isMatch)
+        return res.status(400).json({ error: "Current Password is incorrect" });
+      if (newPassword.length < 6) {
+        return res
+          .status(400)
+          .json({ error: "Password must be at least 6 characters long" });
+      }
+      user.password = await bcrypt.hash(newPassword, 8);
+    }
+    user.fullName = fullName || user.fullName;
+    user.userName = userName || user.userName;
+    user.email = email || user.email;
+    user.bio = bio || user.bio;
+    user.link = link || user.link;
+
+    user = await user.save();
+    user.password = null;
+    return res.status(200).json({ user });
   } catch (err) {
     console.log(err.message);
     return res.status(500).json({ error: "Internal server error" });
